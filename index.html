@@ -1,1 +1,254 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waffenverzeichnis</title>
+    <style>
+        /* Schwarzes/Dunkles Design */
+        body {
+            background-color: #0c0c0c;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Fixierter Header mit Suchfeld oben rechts */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background-color: #121212;
+            padding: 15px 30px;
+            border-bottom: 2px solid #1f1f1f;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 22px;
+            letter-spacing: 1px;
+            color: #ffffff;
+        }
+        
+        /* Suchfeld-Container */
+        .search-container {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .search-box {
+            padding: 10px 16px;
+            border: 1px solid #2d2d2d;
+            border-radius: 6px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-size: 14px;
+            width: 280px;
+            transition: border-color 0.3s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        
+        .search-btn {
+            padding: 10px 18px;
+            background-color: #4a90e2;
+            border: none;
+            border-radius: 6px;
+            color: #ffffff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .search-btn:hover {
+            background-color: #357abd;
+        }
 
+        /* Hauptinhalt & Listen-Layout */
+        main {
+            padding: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .waffen-liste {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        /* Einzelner Waffen-Eintrag */
+        .waffen-eintrag {
+            background-color: #141414;
+            border: 1px solid #1f1f1f;
+            border-radius: 8px;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.4s, border-color 0.4s;
+        }
+        
+        /* Visuelles Feedback beim Anspringen / Markieren */
+        .waffen-eintrag.highlight {
+            background-color: #1b263b;
+            border-color: #4a90e2;
+            box-shadow: 0 0 12px rgba(74, 144, 226, 0.4);
+        }
+        
+        .waffen-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        /* Normaler Waffenname oben */
+        .waffen-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        
+        /* Codename darunter */
+        .waffen-codename {
+            font-size: 13px;
+            color: #777777;
+            font-family: monospace;
+        }
+        
+        /* Gallery-Nummer rechts daneben */
+        .gallery-nummer {
+            font-size: 16px;
+            font-weight: 700;
+            color: #4a90e2;
+            background-color: #1a1a1a;
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid #2d2d2d;
+        }
+
+        /* Hinweis bei CORS- oder Ladefehlern */
+        .error-message {
+            color: #ff4d4d;
+            text-align: center;
+            line-height: 1.6;
+            margin-top: 40px;
+            background-color: #1f1111;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #3a1a1a;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Armory Dashboard</h1>
+        <div class="search-container">
+            <input type="text" id="searchField" class="search-box" placeholder="Waffenname oder Gallery-Nr. eingeben...">
+            <button id="searchBtn" class="search-btn">Suchen</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="waffenListe" class="waffen-liste">
+            </div>
+        <div id="errorMessage" class="error-message"></div>
+    </main>
+
+    <script>
+        let waffenData = [];
+
+        // 1. Daten aus der itemrecords.json laden
+        async function loadWaffenDaten() {
+            try {
+                const response = await fetch('itemrecords.json');
+                if (!response.ok) {
+                    throw new Error('Datei konnte nicht gelesen werden.');
+                }
+                waffenData = await response.json();
+                renderWaffen(waffenData);
+            } catch (error) {
+                console.error(error);
+                const errorDiv = document.getElementById('errorMessage');
+                errorDiv.style.display = 'block';
+                errorDiv.innerHTML = `
+                    <strong>Fehler beim Laden der Waffendaten!</strong><br>
+                    Stelle sicher, dass sich die Datei <code>itemrecords.json</code> im selben Ordner wie diese HTML-Datei befindet.<br><br>
+                    <small><em>Hinweis:</em> Wenn du HTML-Dateien direkt per Doppelklick (<code>file://</code>) im Browser öffnest, blockieren moderne Browser das Laden lokaler JSON-Dateien aus Sicherheitsgründen (CORS). Nutze am besten einen lokalen Webserver (wie z.B. die Erweiterung "Live Server" in VS Code oder <code>python -m http.server</code>), damit es einwandfrei funktioniert.</small>
+                `;
+            }
+        }
+
+        // 2. Waffen-Einträge generieren und im DOM platzieren
+        function renderWaffen(liste) {
+            const container = document.getElementById('waffenListe');
+            container.innerHTML = '';
+            
+            liste.forEach(waffe => {
+                const eintrag = document.createElement('div');
+                eintrag.className = 'waffen-eintrag';
+                // Eindeutige ID für das Anspringen zuweisen
+                eintrag.id = 'waffe-' + waffe.gallery_number;
+
+                eintrag.innerHTML = `
+                    <div class="waffen-info">
+                        <div class="waffen-name">${waffe.wepName}</div>
+                        <div class="waffen-codename">${waffe.codeName}</div>
+                    </div>
+                    <div class="gallery-nummer">#${waffe.gallery_number}</div>
+                `;
+                container.appendChild(eintrag);
+            });
+        }
+
+        // 3. Suchfunktion: Findet den Eintrag und springt dorthin
+        function sucheUndSpringe() {
+            const query = document.getElementById('searchField').value.trim().toLowerCase();
+            if (!query) return;
+
+            // Vorherige Markierungen löschen
+            document.querySelectorAll('.waffen-eintrag').forEach(el => el.classList.remove('highlight'));
+
+            // Suche nach Übereinstimmung im normalen Namen oder der Gallery-Nummer (Codenamen ignoriert)
+            const gefundeneWaffe = waffenData.find(waffe => 
+                waffe.wepName.toLowerCase() === query || 
+                waffe.wepName.toLowerCase().includes(query) ||
+                waffe.gallery_number.toString() === query
+            );
+
+            if (gefundeneWaffe) {
+                const zielElement = document.getElementById('waffe-' + gefundeneWaffe.gallery_number);
+                if (zielElement) {
+                    // Sanftes Scrollen genau zur Mitte des Bildschirms
+                    zielElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Eintrag blau aufleuchten lassen
+                    zielElement.classList.add('highlight');
+                }
+            } else {
+                alert('Waffe oder Gallery-Nummer wurde nicht gefunden.');
+            }
+        }
+
+        // Event-Listener aktivieren
+        document.getElementById('searchBtn').addEventListener('click', sucheUndSpringe);
+        document.getElementById('searchField').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sucheUndSpringe();
+            }
+        });
+
+        // Starten, sobald das Dokument bereit ist
+        window.addEventListener('DOMContentLoaded', loadWaffenDaten);
+    </script>
+</body>
+</html>
